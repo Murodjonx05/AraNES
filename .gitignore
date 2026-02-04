@@ -1,0 +1,12 @@
+*.log
+.vscode
+.pytest_cache
+
+__pycache__
+
+*.db
+*.sqlite*
+
+.env
+.env.*
+!.env.example
