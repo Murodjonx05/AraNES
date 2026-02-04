@@ -13,6 +13,8 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      ARANES_SECRET_KEY: ${{ secrets.ARANES_SECRET_KEY }}
 
     steps:
       - name: Checkout
@@ -37,6 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: tests
     if: github.ref == 'refs/heads/main'
+    env:
+      ARANES_SECRET_KEY: ${{ secrets.ARANES_SECRET_KEY }}
 
     steps:
       - name: Deploy placeholder
