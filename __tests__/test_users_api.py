@@ -1,10 +1,10 @@
 from typing import Dict
 
+import asyncio
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
-import asyncio
-
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -31,6 +31,9 @@ def _setup_app_and_db(monkeypatch):
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
+    async def _dispose() -> None:
+        await async_engine.dispose()
+
     asyncio.run(_init_models())
 
     monkeypatch.setattr(users_api, "SessionLocal", TestingSessionLocal)
@@ -47,7 +50,7 @@ def _setup_app_and_db(monkeypatch):
     app = FastAPI()
     app.include_router(CORE_OPEN)
     app.include_router(CORE_CLOSE)
-    return app, registry
+    return app, registry, _dispose
 
 
 def _get_auth_headers(client: TestClient, username: str, password: str) -> dict[str, str]:
@@ -61,7 +64,7 @@ def _get_auth_headers(client: TestClient, username: str, password: str) -> dict[
 
 
 def test_role_permissions_defaults_and_patch(monkeypatch):
-    app, registry = _setup_app_and_db(monkeypatch)
+    app, registry, dispose = _setup_app_and_db(monkeypatch)
 
     class BlogPerm(BaseModel):
         allow_read: bool = True
@@ -106,10 +109,11 @@ def test_role_permissions_defaults_and_patch(monkeypatch):
         headers=headers,
     )
     assert resp.status_code == 400
+    asyncio.run(dispose())
 
 
 def test_user_create_and_patch(monkeypatch):
-    app, registry = _setup_app_and_db(monkeypatch)
+    app, registry, dispose = _setup_app_and_db(monkeypatch)
 
     class AccessPerm(BaseModel):
         enabled: bool = True
@@ -155,10 +159,11 @@ def test_user_create_and_patch(monkeypatch):
     )
     assert resp.status_code == 200
     assert resp.json()["role"] == "editor"
+    asyncio.run(dispose())
 
 
 def test_protected_endpoints_require_token(monkeypatch):
-    app, registry = _setup_app_and_db(monkeypatch)
+    app, registry, dispose = _setup_app_and_db(monkeypatch)
 
     class AccessPerm(BaseModel):
         enabled: bool = True
@@ -184,10 +189,11 @@ def test_protected_endpoints_require_token(monkeypatch):
         json={"username": "bob"},
     )
     assert resp.status_code == 401
+    asyncio.run(dispose())
 
 
 def test_token_expires(monkeypatch):
-    app, registry = _setup_app_and_db(monkeypatch)
+    app, registry, dispose = _setup_app_and_db(monkeypatch)
 
     class AccessPerm(BaseModel):
         enabled: bool = True
@@ -211,10 +217,11 @@ def test_token_expires(monkeypatch):
     resp = client.get("/api/roles", headers=headers)
     assert resp.status_code == 401
     assert resp.json()["detail"] == "Token expired"
+    asyncio.run(dispose())
 
 
 def test_token_survives_username_change(monkeypatch):
-    app, registry = _setup_app_and_db(monkeypatch)
+    app, registry, dispose = _setup_app_and_db(monkeypatch)
 
     class AccessPerm(BaseModel):
         enabled: bool = True
@@ -243,3 +250,4 @@ def test_token_survives_username_change(monkeypatch):
 
     resp = client.get("/api/roles", headers=headers)
     assert resp.status_code == 200
+    asyncio.run(dispose())
