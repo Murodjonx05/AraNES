@@ -135,7 +135,7 @@ async def get_health(request: Request):
 
 ## Конфигурация окружения
 
-Переменные читаются из окружения. Пример — `.env.example`.
+Переменные читаются из окружения. Файл `.env` подхватывается автоматически через `python-dotenv`. Пример — `.env.example`.
 
 - `ARANES_SECRET_KEY` — секретный ключ (длина 32+)
 - `DATABASE_URL_ASYNC` — async URL (по умолчанию `sqlite+aiosqlite:///./app.db`)
